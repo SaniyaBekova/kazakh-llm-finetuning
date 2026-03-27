@@ -109,7 +109,46 @@ The **Hierarchical Planner→Realizer** model performed best overall: highest co
 
 ---
 
-## Dependencies
+## How to Reproduce
+
+> **Hardware requirement:** A100 GPU (40GB) recommended. All notebooks were developed and run on **Google Colab Pro**. Training on smaller GPUs will require reducing `max_seq_length` and batch sizes.
+
+### Step 1 — Data Collection
+Run `data/StoryScraper.ipynb` to scrape and deduplicate Kazakh fairy tales from the three sources. Output: `train_with_tags.jsonl` with control tags per story.
+
+> If you skip scraping, contact the authors for the preprocessed dataset.
+
+### Step 2 — SFT Training (Model 1)
+Run `training/Instruction_tuning.ipynb`:
+- Mounts Google Drive, loads `dataset_v4_final.json`
+- Splits data 80/10/10, saves `instruction_train.jsonl` / `val.jsonl`
+- Fine-tunes KazLLM-8B with QLoRA (4-bit, LoRA r=32)
+- Saves adapter weights to `/models/instruction_tuned_kazllm/`
+
+### Step 3 — DPO Training (Model 3)
+Run `training/DPO.ipynb`:
+- Loads Model 2 (Planner→Realizer) checkpoint from Drive
+- Samples K=3 candidates per prompt, scores with BERTScore F1
+- Runs DPO training, saves adapter to `/models/realizer_dpo_kazllm_v3/`
+
+### Step 4 — Evaluation
+Run `evaluation/Evaluation_part1.ipynb`:
+- Loads all model checkpoints
+- Computes automatic metrics (grammaticality, contextuality, ROUGE, BERTScore)
+- Runs LLM-as-judge evaluation (GPT-4, Gemini)
+- Outputs results to `evaluation_part1.csv`
+
+### Expected Runtime (A100)
+| Step | Approximate Time |
+|------|-----------------|
+| Scraping + deduplication | ~30 min |
+| SFT training (3 epochs) | ~2–3 hours |
+| DPO training | ~1 hour |
+| Evaluation | ~1–2 hours |
+
+---
+
+
 
 ```
 transformers
